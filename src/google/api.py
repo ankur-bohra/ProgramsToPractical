@@ -39,6 +39,74 @@ def build_service():
     service = build("docs", "v1", credentials=creds)
     return service
 
+def get_writer(documents, documentId): # Take documents and documentId only once
+    def write_and_style(text, style="NORMAL_TEXT", alignment="START"):
+        print("---------------------------------------------")
+        print("Writing", text)
+        # Write text
+        documents.batchUpdate(
+            documentId = documentId,
+            body = {
+                "requests": [{
+                    "insertText": {
+                        "text": r"Practical nasdadasd\nasdasasdads",
+                        "endOfSegmentLocation": {
+                            "segmentId": "" # Body
+                        }
+                    }
+                }]
+            }
+        ).execute()
+
+        # Find the startIndex and endIndex for the whole multiline text
+        content = documents.get(documentId=documentId).execute().get("body").get("content")
+        printer.pprint(content)
+        text = text + "\n" # Docs adds a \n at the end of an insertText call
+        first_line = text.split("\n")[0] + "\n"
+        last_line = text.split("\n")[-2] + "\n" # "text\n".split("\n") = ["text", ""]
+
+        # Update each paragraph in separate request
+        paragraphs = []
+        recordText = False
+        for StructuralElement in content:
+            if StructuralElement.get("paragraph"):
+                for element in StructuralElement.get("paragraph").get("elements"):
+                    if element.get("textRun"):
+                        line_content = element.get("textRun").get("content")
+                        if line_content == first_line:
+                            recordText = True # Start recording if text starts
+                        if recordText:
+                            paragraphs.append(element)
+                        if line_content == last_line:
+                            recordText = False # Stop recording if text is stopping
+        
+        requests = []
+        print(paragraphs)
+        for paragraph_element in paragraphs:
+            requests.append({
+                    "updateParagraphStyle": {
+                        "paragraphStyle": {
+                            "namedStyleType": style,
+                            "alignment": alignment
+                        },
+                        "fields": "namedStyleType,alignment",
+                        "range": {
+                            "segmentId": "", # Body
+                            "startIndex": paragraph_element.get("startIndex"),
+                            "endIndex": paragraph_element.get("endIndex")
+                        }
+                    }
+                })
+
+        try:
+            documents.batchUpdate(
+                documentId = documentId,
+                body = {"requests": requests}
+            ).execute()
+        except:
+            exit()
+    return write_and_style
+    
 
 def start_requests(practical, documentId=None):
     service = build_service()
@@ -59,80 +127,17 @@ def start_requests(practical, documentId=None):
     # | Normal text = Question text              |
     # |------------------------------------------|
 
+    write_and_style = get_writer(documents, documentId)
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
     #                                                 HEADING AREA                                                #
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
     
-    # Write raw heading text
-    documents.batchUpdate(
-        documentId = documentId,
-        body = {
-            "requests": [{
-                "insertText": {
-                    "text": f"Practical {practical.get('number')}\n{practical.get('description')}\n~ Ankur Bohra (12E)", # Each \n makes a new paragraph
-                    "endOfSegmentLocation": {
-                        "segmentId": "" # End of body
-                    }
-                }
-            }]
-        }
-    ).execute()
-    content = documents.get(documentId=documentId).execute().get("body").get("content")
-
-    # Style heading text
-    # content -> paragraph -> elements -> (element) -> endIndex, startIndex
-    main_heading = content[1].get("paragraph").get("elements")[0] # 0th is the section for header
-    sub_heading = content[2].get("paragraph").get("elements")[0]
-    author = content[3].get("paragraph").get("elements")[0]
-    documents.batchUpdate(
-        documentId = documentId,
-        body = {
-            "requests": [
-                {
-                    "updateParagraphStyle": {
-                        "paragraphStyle": {
-                            "namedStyleType": "TITLE",
-                            "alignment": "CENTER"
-                        },
-                        "fields": "namedStyleType,alignment",
-                        "range": {
-                            "segmentId": "",
-                            "startIndex": main_heading.get("startIndex"),
-                            "endIndex": main_heading.get("endIndex")
-                        }
-                    }
-                },
-                {
-                    "updateParagraphStyle": {
-                        "paragraphStyle": {
-                            "namedStyleType": "SUBTITLE",
-                            "alignment": "CENTER"
-                        },
-                        "fields": "namedStyleType,alignment",
-                        "range": {
-                            "segmentId": "",
-                            "startIndex": sub_heading.get("startIndex"),
-                            "endIndex": sub_heading.get("endIndex")
-                        }
-                    }
-                },
-                {
-                    "updateParagraphStyle": {
-                        "paragraphStyle": {
-                            "namedStyleType": "SUBTITLE",
-                            "alignment": "CENTER"
-                        },
-                        "fields": "namedStyleType,alignment",
-                        "range": {
-                            "segmentId": "",
-                            "startIndex": author.get("startIndex"),
-                            "endIndex": author.get("endIndex")
-                        }
-                    }
-                }
-            ]
-        }
-    ).execute()
+    # Write raw heading texts
+    write_and_style([
+        (f"Practical {practical.get('number')}", "TITLE", "CENTER"),
+        (practical.get("description"), "SUBTITLE", "CENTER"),
+        ("~ Ankur Bohra (12E)", "SUBTITLE", "CENTER")
+    ])
     
 
 
