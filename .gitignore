@@ -1,4 +1,5 @@
 debug/
 env/
 src/__pycache__/
-src/google/data/
+src/*/__pycache__/
+src/docs/data
