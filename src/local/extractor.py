@@ -30,6 +30,7 @@ def extract_from_file(filename):
         first_source_line = newlines + 1
 
         proxy = IOProxy()
+        print("\n> Running",file.name.split("\\")[-1])
         with proxy:
             try:
                 exec(source, {}) # Specify environment
