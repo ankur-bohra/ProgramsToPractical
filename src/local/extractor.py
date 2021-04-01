@@ -1,37 +1,41 @@
 import glob
+from os import error
 import re
 
-from ioproxy import IOProxy
+from .ioproxy import IOProxy
 
-info_regex = r"^'''\n@heading: (.+)\n@question-no: (\d+)\n@question: ((?:.*\n)+)'''"
+info_regex = r"^'''\n@summary: (.+)\n@question-no: (\d+)\n@question: ((?:.*\n)+)'''"
 prac_name_regex = r".+\\(Practical (\d+) - (.+))"
 
 def extract_from_file(filename):
     '''
-    Pull the heading, question, source and output of a program with following docstring:
+    Pull the summary, question, source and output of a program with following docstring:
 
-    @heading: heading
     @question-no: question no
+    @summary: summary
     @question: question
     that may have 
     newlines
     '''
-    with open(filename, "r+") as file:
+    with open(filename, "r") as file:
         source = file.read()
 
         match = re.search(info_regex, source)
-        heading = match.group(1)
-        question_no = match.group(2)
+        summary = match.group(1)
+        question_no = int(match.group(2))
         question = match.group(3)
+        question = question[:len(question) - 1]
+
+        newlines = 5 + question.count("\n") # ''', @question-no, @summary, question-content, last line of q-content, '''
+        first_source_line = newlines + 1
 
         proxy = IOProxy()
         with proxy:
-            exec(compile(
-                source = source,
-                filename = file.name,
-                mode = "exec" 
-            ))
-        return heading, question, question_no, proxy.record
+            try:
+                exec(source, {}) # Specify environment
+            except NameError as e:
+                return summary, question, question_no, e, first_source_line
+        return summary, question_no, question, proxy.record, first_source_line
 
 def extract_from_practical(path):
     '''
@@ -41,14 +45,15 @@ def extract_from_practical(path):
         "name": re.search(prac_name_regex, path).group(1),
         "number": re.search(prac_name_regex, path).group(2),
         "description": re.search(prac_name_regex, path).group(3),
-        "practicals": {}
+        "questions": {}
     }
     for filename in glob.glob(path+"\\*.py"):
-        heading, question_no, question, output = extract_from_file(filename)
-        practical["practicals"][question_no] = {
-            "heading": heading,
+        summary, question_no, question, output, first_source_line = extract_from_file(filename)
+        practical["questions"][question_no] = {
+            "summary": summary,
             "question": question,
-            "path": path+"\\"+filename,
-            "output": output
+            "path": filename,
+            "output": output,
+            "firstSourceLine": first_source_line
         }
     return practical

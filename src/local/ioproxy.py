@@ -36,10 +36,8 @@ class IOProxy():
 
     def __exit__(self, ex_type, ex_value, ex_traceback):
         '''
-        Switches back to actual stdin/out and trims hanging newline from record.
+        Switches back to actual stdin/out.
         '''
-        if ex_value:
-            self.stdout.write(ex_traceback+"\n")
         self.stop()
 
     def write(self, content):
