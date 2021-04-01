@@ -1,1 +1,1 @@
-env\Scripts\python.exe src\ProgramsToPractical.py
+title ProgramsToPractical & env\Scripts\python.exe src\ProgramsToPractical.py
