@@ -11,8 +11,8 @@ def extract_from_file(filename):
     '''
     Pull the summary, question, source and output of a program with following docstring:
 
-    @question-no: question no
     @summary: summary
+    @question-no: question no
     @question: question
     that may have 
     newlines
